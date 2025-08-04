@@ -170,7 +170,63 @@
                   employee.phone && React.createElement("p", { key: "phone", style: { color: "white", margin: "0 0 1rem 0" } }, employee.phone),
                   React.createElement("div", { key: "share-info", style: { borderTop: "1px solid rgba(255,255,255,0.3)", paddingTop: "1rem" } }, [
                     React.createElement("p", { key: "share-text", style: { color: "white", margin: "0 0 0.5rem 0", fontSize: "0.9rem" } }, "Share Code:"),
-                    React.createElement("code", { key: "share-code", style: { color: "white", background: "rgba(255,255,255,0.2)", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "1.1rem", fontWeight: "bold" } }, employee.shareCode)
+                    React.createElement("div", { key: "share-actions", style: { display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" } }, [
+                      React.createElement("code", { key: "share-code", style: { color: "white", background: "rgba(255,255,255,0.2)", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "1.1rem", fontWeight: "bold" } }, employee.shareCode),
+                      React.createElement("button", {
+                        key: "copy-btn",
+                        onClick: () => {
+                          navigator.clipboard.writeText(employee.shareCode).then(() => {
+                            alert("Share code copied to clipboard!");
+                          }).catch(() => {
+                            // Fallback for browsers that don't support clipboard API
+                            const textArea = document.createElement("textarea");
+                            textArea.value = employee.shareCode;
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            alert("Share code copied to clipboard!");
+                          });
+                        },
+                        style: { 
+                          background: "rgba(255,255,255,0.2)", 
+                          color: "white", 
+                          border: "1px solid rgba(255,255,255,0.3)",
+                          borderRadius: "4px",
+                          padding: "0.25rem 0.5rem",
+                          cursor: "pointer",
+                          fontSize: "0.8rem"
+                        }
+                      }, "📋 Copy"),
+                      React.createElement("button", {
+                        key: "share-btn",
+                        onClick: () => {
+                          if (navigator.share) {
+                            navigator.share({
+                              title: `${employee.name}'s Business Card`,
+                              text: `Here's my business card! Use code: ${employee.shareCode}`,
+                              url: window.location.href
+                            });
+                          } else {
+                            // Fallback sharing options
+                            const shareText = `Here's my business card! Use code: ${employee.shareCode} at ${window.location.href}`;
+                            const emailSubject = `${employee.name}'s Business Card`;
+                            const emailBody = encodeURIComponent(shareText);
+                            const mailtoLink = `mailto:?subject=${emailSubject}&body=${emailBody}`;
+                            window.open(mailtoLink);
+                          }
+                        },
+                        style: { 
+                          background: "rgba(255,255,255,0.2)", 
+                          color: "white", 
+                          border: "1px solid rgba(255,255,255,0.3)",
+                          borderRadius: "4px",
+                          padding: "0.25rem 0.5rem",
+                          cursor: "pointer",
+                          fontSize: "0.8rem"
+                        }
+                      }, "📤 Share")
+                    ])
                   ])
                 ])
               )

@@ -44,9 +44,61 @@
 
     // Load data from localStorage
     useEffect(() => {
+      const savedEmployees = JSON.parse(localStorage.getItem("employees")) || [];
+      
+      // Add sample business cards if none exist
+      if (savedEmployees.length === 0) {
+        const sampleEmployees = [
+          {
+            id: 1,
+            name: "Sarah Johnson",
+            title: "Senior Software Engineer",
+            email: "sarah.johnson@techcorp.com",
+            phone: "+1 (555) 123-4567",
+            designId: 1,
+            companyName: "TechCorp Solutions",
+            brandColors: "#2563eb, #7c3aed",
+            template: "Modern Tech Template",
+            shareCode: generateShareCode(),
+            isPublic: true,
+            createdAt: new Date().toLocaleDateString()
+          },
+          {
+            id: 2,
+            name: "Michael Chen",
+            title: "Marketing Director",
+            email: "m.chen@creativestudio.com",
+            phone: "+1 (555) 987-6543",
+            designId: 2,
+            companyName: "Creative Studio Inc",
+            brandColors: "#059669, #0891b2",
+            template: "Creative Design Template",
+            shareCode: generateShareCode(),
+            isPublic: true,
+            createdAt: new Date().toLocaleDateString()
+          },
+          {
+            id: 3,
+            name: "Emily Rodriguez",
+            title: "Financial Analyst",
+            email: "emily.r@globalfinance.com",
+            phone: "+1 (555) 456-7890",
+            designId: 3,
+            companyName: "Global Finance Group",
+            brandColors: "#dc2626, #ea580c",
+            template: "Professional Finance Template",
+            shareCode: generateShareCode(),
+            isPublic: true,
+            createdAt: new Date().toLocaleDateString()
+          }
+        ];
+        setEmployees(sampleEmployees);
+      } else {
+        setEmployees(savedEmployees);
+      }
+      
       setOrders(JSON.parse(localStorage.getItem("orders")) || []);
       setDesigns(JSON.parse(localStorage.getItem("designs")) || []);
-      setEmployees(JSON.parse(localStorage.getItem("employees")) || []);
       setConnectionRequests(JSON.parse(localStorage.getItem("connectionRequests")) || []);
       setConnections(JSON.parse(localStorage.getItem("connections")) || []);
       

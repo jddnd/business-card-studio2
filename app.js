@@ -7,6 +7,9 @@
   };
 
   function App() {
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [loginUsername, setLoginUsername] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
     const [currentRole, setCurrentRole] = useState("employee");
     const [orders, setOrders] = useState([]);
     const [designs, setDesigns] = useState([]);
@@ -52,6 +55,9 @@
       if (savedDarkMode) {
         document.body.classList.add("dark");
       }
+      
+      const savedLoginState = localStorage.getItem("isLoggedIn") === "true";
+      setIsLoggedIn(savedLoginState);
     }, []);
 
     // Filter contacts based on search
@@ -95,6 +101,23 @@
       setDarkMode(newDarkMode);
       localStorage.setItem("darkMode", newDarkMode);
       document.body.classList.toggle("dark", newDarkMode);
+    };
+
+    const handleLogin = () => {
+      if (loginUsername.trim() && loginPassword.trim()) {
+        setIsLoggedIn(true);
+        localStorage.setItem("isLoggedIn", "true");
+        setLoginUsername("");
+        setLoginPassword("");
+      } else {
+        alert("Please enter both username and password");
+      }
+    };
+
+    const handleLogout = () => {
+      setIsLoggedIn(false);
+      localStorage.setItem("isLoggedIn", "false");
+      setShowMenu(false);
     };
 
     const generateShareCode = () => {
@@ -365,7 +388,25 @@
               color: darkMode ? "#f3f4f6" : "#374151",
               fontSize: "16px"
             }
-          }, "❓ Help & Support")
+          }, "❓ Help & Support"),
+          
+          React.createElement("button", {
+            key: "logout-btn",
+            onClick: handleLogout,
+            style: {
+              background: "none",
+              border: "none",
+              padding: "15px",
+              textAlign: "left",
+              cursor: "pointer",
+              borderRadius: "10px",
+              color: "#EF4444",
+              fontSize: "16px",
+              marginTop: "20px",
+              borderTop: `1px solid ${darkMode ? "rgba(55, 65, 81, 0.5)" : "rgba(229, 231, 235, 0.5)"}`,
+              paddingTop: "20px"
+            }
+          }, "🚪 Logout")
         ])
       ]);
     };
@@ -777,6 +818,130 @@
       ));
     };
 
+    const renderLoginScreen = () => {
+      return React.createElement("div", {
+        style: {
+          minHeight: "100vh",
+          background: darkMode ? "#111827" : "#f9fafb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px"
+        }
+      }, [
+        React.createElement("div", {
+          key: "login-container",
+          className: "glass",
+          style: {
+            maxWidth: "400px",
+            width: "100%",
+            textAlign: "center"
+          }
+        }, [
+          React.createElement("div", {
+            key: "logo-section",
+            style: { marginBottom: "2rem" }
+          }, [
+            React.createElement("h1", {
+              key: "logo-title",
+              style: {
+                fontSize: "2.5rem",
+                fontWeight: "700",
+                background: "linear-gradient(90deg, #6366f1, #9333ea)",
+                WebkitBackgroundClip: "text",
+                color: "transparent",
+                margin: "0 0 0.5rem 0"
+              }
+            }, "Business Card Studio"),
+            React.createElement("p", {
+              key: "subtitle",
+              style: {
+                color: darkMode ? "#9CA3AF" : "#6B7280",
+                fontSize: "1rem",
+                margin: 0
+              }
+            }, "Connect professionally, share instantly")
+          ]),
+          
+          React.createElement("div", {
+            key: "login-form",
+            style: { marginBottom: "1.5rem" }
+          }, [
+            React.createElement("input", {
+              key: "username",
+              type: "text",
+              placeholder: "Username",
+              value: loginUsername,
+              onChange: (e) => setLoginUsername(e.target.value),
+              onKeyPress: (e) => e.key === "Enter" && handleLogin(),
+              style: {
+                width: "100%",
+                padding: "12px 16px",
+                marginBottom: "1rem",
+                borderRadius: "12px",
+                border: "none",
+                background: darkMode ? "rgba(55, 65, 81, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                fontSize: "16px",
+                outline: "none",
+                boxSizing: "border-box"
+              }
+            }),
+            React.createElement("input", {
+              key: "password",
+              type: "password",
+              placeholder: "Password",
+              value: loginPassword,
+              onChange: (e) => setLoginPassword(e.target.value),
+              onKeyPress: (e) => e.key === "Enter" && handleLogin(),
+              style: {
+                width: "100%",
+                padding: "12px 16px",
+                marginBottom: "1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: darkMode ? "rgba(55, 65, 81, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                fontSize: "16px",
+                outline: "none",
+                boxSizing: "border-box"
+              }
+            }),
+            React.createElement("button", {
+              key: "login-btn",
+              onClick: handleLogin,
+              className: "gradient-btn",
+              style: {
+                width: "100%",
+                padding: "12px",
+                fontSize: "16px",
+                fontWeight: "600",
+                marginBottom: "1rem"
+              }
+            }, "Sign In")
+          ]),
+          
+          React.createElement("button", {
+            key: "theme-toggle",
+            onClick: toggleDarkMode,
+            style: {
+              background: "none",
+              border: "none",
+              color: darkMode ? "#9CA3AF" : "#6B7280",
+              cursor: "pointer",
+              fontSize: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              margin: "0 auto"
+            }
+          }, [
+            React.createElement("span", { key: "icon" }, darkMode ? "☀️" : "🌙"),
+            React.createElement("span", { key: "text" }, darkMode ? "Light Mode" : "Dark Mode")
+          ])
+        ])
+      ]);
+    };
+
     const renderEmployeeView = () => {
       return React.createElement("div", {
         style: {
@@ -1032,6 +1197,10 @@
             ]
       ]);
     };
+
+    if (!isLoggedIn) {
+      return renderLoginScreen();
+    }
 
     if (currentRole === "employee") {
       return renderEmployeeView();

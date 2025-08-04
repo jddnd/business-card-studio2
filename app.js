@@ -18,7 +18,10 @@
     const [connections, setConnections] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
-    const [activeTab, setActiveTab] = useState("my-cards");
+    const [activeTab, setActiveTab] = useState("wallet");
+    const [selectedCard, setSelectedCard] = useState(null);
+    const [showMenu, setShowMenu] = useState(false);
+    const [filteredContacts, setFilteredContacts] = useState([]);
     
     // Company form states
     const [companyName, setCompanyName] = useState("");
@@ -51,6 +54,33 @@
       }
     }, []);
 
+    // Filter contacts based on search
+    useEffect(() => {
+      if (currentRole === "employee") {
+        const currentUser = employees[0];
+        if (currentUser) {
+          // Get all connected employees
+          const connectedIds = connections
+            .filter(conn => conn.employeeId1 === currentUser.id || conn.employeeId2 === currentUser.id)
+            .map(conn => conn.employeeId1 === currentUser.id ? conn.employeeId2 : conn.employeeId1);
+          
+          let allContacts = employees.filter(emp => connectedIds.includes(emp.id) || emp.id === currentUser.id);
+          
+          if (searchQuery) {
+            allContacts = allContacts.filter(contact => 
+              contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              contact.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              contact.title.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          }
+          
+          // Sort alphabetically by name
+          allContacts.sort((a, b) => a.name.localeCompare(b.name));
+          setFilteredContacts(allContacts);
+        }
+      }
+    }, [employees, connections, searchQuery, currentRole]);
+
     // Save data to localStorage
     useEffect(() => {
       localStorage.setItem("orders", JSON.stringify(orders));
@@ -71,6 +101,24 @@
       return Math.random().toString(36).substring(2, 10).toUpperCase();
     };
 
+    const handlePhoneCall = (phoneNumber) => {
+      if (confirm(`Do you want to call ${phoneNumber}?`)) {
+        window.open(`tel:${phoneNumber}`);
+      }
+    };
+
+    const handleEmail = (email) => {
+      if (confirm(`Do you want to send an email to ${email}?`)) {
+        window.open(`mailto:${email}`);
+      }
+    };
+
+    const handleAddress = (companyName) => {
+      if (confirm(`Do you want to view ${companyName} on maps?`)) {
+        window.open(`https://maps.google.com/?q=${encodeURIComponent(companyName)}`);
+      }
+    };
+
     const searchPublicCards = (query) => {
       if (!query.trim()) {
         setSearchResults([]);
@@ -87,7 +135,7 @@
     };
 
     const sendConnectionRequest = (targetEmployeeId) => {
-      const currentUser = employees[0]; // Assuming first employee is current user
+      const currentUser = employees[0];
       if (!currentUser) return;
       
       const newRequest = {
@@ -134,12 +182,10 @@
       
       setEmployees(updatedEmployees);
       
-      // Find all connections for this employee
       const userConnections = connections.filter(conn => 
         conn.employeeId1 === employeeId || conn.employeeId2 === employeeId
       );
       
-      // In a real app, you'd send notifications to all connected users
       if (userConnections.length > 0) {
         alert(`Job update sent to ${userConnections.length} connections!`);
       }
@@ -186,7 +232,6 @@
       
       setDesigns([...designs, newDesign]);
       
-      // Update order status
       setOrders(orders.map(order => 
         order.id === parseInt(selectedOrder) 
           ? { ...order, status: "designed" }
@@ -215,7 +260,7 @@
         brandColors: order.brandColors,
         template: design.template,
         shareCode: generateShareCode(),
-        isPublic: false, // Default to private
+        isPublic: false,
         createdAt: new Date().toLocaleDateString()
       };
       
@@ -238,166 +283,316 @@
       setShareCode("");
     };
 
-    const renderTabNavigation = () => {
-      const tabs = [
-        { id: "my-cards", label: "My Cards", icon: "👤" },
-        { id: "search", label: "Search", icon: "🔍" },
-        { id: "connections", label: "Connections", icon: "🤝" },
-        { id: "requests", label: "Requests", icon: "📩" },
-        { id: "receive", label: "Receive Card", icon: "📇" }
-      ];
+    const renderHamburgerMenu = () => {
+      if (!showMenu) return null;
 
       return React.createElement("div", {
         style: {
-          display: "flex",
-          gap: "0.5rem",
-          marginBottom: "2rem",
-          flexWrap: "wrap"
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "250px",
+          height: "100vh",
+          background: darkMode ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(20px)",
+          zIndex: 1000,
+          padding: "60px 20px 20px 20px",
+          boxShadow: "2px 0 20px rgba(0,0,0,0.1)"
         }
-      }, tabs.map(tab =>
-        React.createElement("button", {
-          key: tab.id,
-          onClick: () => setActiveTab(tab.id),
-          style: {
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "none",
-            background: activeTab === tab.id ? "linear-gradient(90deg, #4f46e5, #9333ea)" : "rgba(255,255,255,0.2)",
-            color: activeTab === tab.id ? "white" : darkMode ? "#f3f4f6" : "#374151",
-            cursor: "pointer",
-            fontSize: "0.9rem",
-            fontWeight: "500"
-          }
-        }, `${tab.icon} ${tab.label}`)
-      ));
-    };
-
-    const renderMyCards = () => {
-      return React.createElement("div", {}, [
-        React.createElement("h3", { key: "title" }, "My Business Cards"),
-        employees.length === 0 
-          ? React.createElement("p", { key: "no-cards" }, "No cards assigned yet. Contact HR to get your business card.")
-          : employees.map(employee => 
-              React.createElement("div", {
-                key: employee.id,
-                className: "glass",
-                style: { 
-                  margin: "1rem 0", 
-                  padding: "1rem",
-                  background: `linear-gradient(135deg, ${employee.brandColors || '#6366f1, #9333ea'})`
-                }
-              }, [
-                React.createElement("div", {
-                  key: "card-header",
-                  style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }
-                }, [
-                  React.createElement("h4", { key: "name", style: { color: "white", margin: "0" } }, employee.name),
-                  React.createElement("div", { key: "actions", style: { display: "flex", gap: "0.5rem" } }, [
-                    React.createElement("button", {
-                      key: "visibility-btn",
-                      onClick: () => toggleProfileVisibility(employee.id),
-                      style: {
-                        background: "rgba(255,255,255,0.2)",
-                        color: "white",
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        borderRadius: "0.25rem",
-                        padding: "0.25rem 0.5rem",
-                        cursor: "pointer",
-                        fontSize: "0.8rem"
-                      }
-                    }, employee.isPublic ? "🌍 Public" : "🔒 Private"),
-                    React.createElement("button", {
-                      key: "update-job-btn",
-                      onClick: () => {
-                        const newCompany = prompt("New company name:", employee.companyName);
-                        const newTitle = prompt("New job title:", employee.title);
-                        if (newCompany && newTitle) {
-                          updateJobAndNotifyConnections(employee.id, newCompany, newTitle);
-                        }
-                      },
-                      style: {
-                        background: "rgba(255,255,255,0.2)",
-                        color: "white",
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        borderRadius: "0.25rem",
-                        padding: "0.25rem 0.5rem",
-                        cursor: "pointer",
-                        fontSize: "0.8rem"
-                      }
-                    }, "💼 Update Job")
-                  ])
-                ]),
-                React.createElement("p", { key: "title", style: { color: "white", margin: "0 0 0.5rem 0" } }, employee.title),
-                React.createElement("p", { key: "company", style: { color: "white", margin: "0 0 0.5rem 0" } }, employee.companyName),
-                React.createElement("p", { key: "email", style: { color: "white", margin: "0 0 0.5rem 0" } }, employee.email),
-                employee.phone && React.createElement("p", { key: "phone", style: { color: "white", margin: "0 0 1rem 0" } }, employee.phone),
-                React.createElement("div", { key: "share-info", style: { borderTop: "1px solid rgba(255,255,255,0.3)", paddingTop: "1rem" } }, [
-                  React.createElement("p", { key: "share-text", style: { color: "white", margin: "0 0 0.5rem 0", fontSize: "0.9rem" } }, "Share Code:"),
-                  React.createElement("div", { key: "share-actions", style: { display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" } }, [
-                    React.createElement("code", { key: "share-code", style: { color: "white", background: "rgba(255,255,255,0.2)", padding: "0.25rem 0.5rem", borderRadius: "4px", fontSize: "1.1rem", fontWeight: "bold" } }, employee.shareCode),
-                    React.createElement("button", {
-                      key: "copy-btn",
-                      onClick: () => {
-                        navigator.clipboard.writeText(employee.shareCode).then(() => {
-                          alert("Share code copied to clipboard!");
-                        }).catch(() => {
-                          const textArea = document.createElement("textarea");
-                          textArea.value = employee.shareCode;
-                          document.body.appendChild(textArea);
-                          textArea.select();
-                          document.execCommand('copy');
-                          document.body.removeChild(textArea);
-                          alert("Share code copied to clipboard!");
-                        });
-                      },
-                      style: { 
-                        background: "rgba(255,255,255,0.2)", 
-                        color: "white", 
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        borderRadius: "4px",
-                        padding: "0.25rem 0.5rem",
-                        cursor: "pointer",
-                        fontSize: "0.8rem"
-                      }
-                    }, "📋 Copy"),
-                    React.createElement("button", {
-                      key: "share-btn",
-                      onClick: () => {
-                        if (navigator.share) {
-                          navigator.share({
-                            title: `${employee.name}'s Business Card`,
-                            text: `Here's my business card! Use code: ${employee.shareCode}`,
-                            url: window.location.href
-                          });
-                        } else {
-                          const shareText = `Here's my business card! Use code: ${employee.shareCode} at ${window.location.href}`;
-                          const emailSubject = `${employee.name}'s Business Card`;
-                          const emailBody = encodeURIComponent(shareText);
-                          const mailtoLink = `mailto:?subject=${emailSubject}&body=${emailBody}`;
-                          window.open(mailtoLink);
-                        }
-                      },
-                      style: { 
-                        background: "rgba(255,255,255,0.2)", 
-                        color: "white", 
-                        border: "1px solid rgba(255,255,255,0.3)",
-                        borderRadius: "4px",
-                        padding: "0.25rem 0.5rem",
-                        cursor: "pointer",
-                        fontSize: "0.8rem"
-                      }
-                    }, "📤 Share")
-                  ])
-                ])
-              ])
-            )
+      }, [
+        React.createElement("div", {
+          key: "menu-items",
+          style: { display: "flex", flexDirection: "column", gap: "15px" }
+        }, [
+          React.createElement("button", {
+            key: "theme-btn",
+            onClick: () => {
+              toggleDarkMode();
+              setShowMenu(false);
+            },
+            style: {
+              background: "none",
+              border: "none",
+              padding: "15px",
+              textAlign: "left",
+              cursor: "pointer",
+              borderRadius: "10px",
+              color: darkMode ? "#f3f4f6" : "#374151",
+              fontSize: "16px"
+            }
+          }, `${darkMode ? "☀️" : "🌙"} ${darkMode ? "Light Mode" : "Dark Mode"}`),
+          
+          React.createElement("button", {
+            key: "profile-btn",
+            onClick: () => setShowMenu(false),
+            style: {
+              background: "none",
+              border: "none",
+              padding: "15px",
+              textAlign: "left",
+              cursor: "pointer",
+              borderRadius: "10px",
+              color: darkMode ? "#f3f4f6" : "#374151",
+              fontSize: "16px"
+            }
+          }, "👤 Profile Settings"),
+          
+          React.createElement("button", {
+            key: "privacy-btn",
+            onClick: () => setShowMenu(false),
+            style: {
+              background: "none",
+              border: "none",
+              padding: "15px",
+              textAlign: "left",
+              cursor: "pointer",
+              borderRadius: "10px",
+              color: darkMode ? "#f3f4f6" : "#374151",
+              fontSize: "16px"
+            }
+          }, "🔒 Privacy"),
+          
+          React.createElement("button", {
+            key: "help-btn",
+            onClick: () => setShowMenu(false),
+            style: {
+              background: "none",
+              border: "none",
+              padding: "15px",
+              textAlign: "left",
+              cursor: "pointer",
+              borderRadius: "10px",
+              color: darkMode ? "#f3f4f6" : "#374151",
+              fontSize: "16px"
+            }
+          }, "❓ Help & Support")
+        ])
       ]);
     };
 
-    const renderSearch = () => {
-      return React.createElement("div", {}, [
-        React.createElement("h3", { key: "title" }, "Search Public Profiles"),
-        React.createElement("p", { key: "description", style: { color: darkMode ? "#d1d5db" : "#6b7280", marginBottom: "1rem" } }, "Discover professionals from other companies:"),
+    const renderWalletView = () => {
+      if (selectedCard) {
+        return React.createElement("div", {
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: darkMode ? "#111827" : "#f9fafb",
+            zIndex: 500,
+            display: "flex",
+            flexDirection: "column"
+          }
+        }, [
+          React.createElement("div", {
+            key: "card-header",
+            style: {
+              padding: "50px 20px 20px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }
+          }, [
+            React.createElement("button", {
+              key: "back-btn",
+              onClick: () => setSelectedCard(null),
+              style: {
+                background: "none",
+                border: "none",
+                fontSize: "16px",
+                color: "#007AFF",
+                cursor: "pointer"
+              }
+            }, "← Back"),
+            React.createElement("h3", {
+              key: "card-title",
+              style: { margin: 0, fontSize: "17px", fontWeight: "600" }
+            }, "Contact"),
+            React.createElement("div", { key: "spacer" })
+          ]),
+          
+          React.createElement("div", {
+            key: "card-content",
+            style: {
+              flex: 1,
+              padding: "0 20px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center"
+            }
+          }, [
+            React.createElement("div", {
+              key: "business-card",
+              style: {
+                width: "320px",
+                height: "200px",
+                background: `linear-gradient(135deg, ${selectedCard.brandColors || '#6366f1, #9333ea'})`,
+                borderRadius: "15px",
+                padding: "20px",
+                color: "white",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between"
+              }
+            }, [
+              React.createElement("div", { key: "card-top" }, [
+                React.createElement("h2", {
+                  key: "name",
+                  style: { margin: "0 0 5px 0", fontSize: "24px", fontWeight: "700" }
+                }, selectedCard.name),
+                React.createElement("p", {
+                  key: "title",
+                  style: { margin: "0 0 10px 0", fontSize: "16px", opacity: 0.9 }
+                }, selectedCard.title),
+                React.createElement("p", {
+                  key: "company",
+                  style: { margin: "0", fontSize: "14px", opacity: 0.8 }
+                }, selectedCard.companyName)
+              ]),
+              
+              React.createElement("div", { key: "card-bottom" }, [
+                React.createElement("div", {
+                  key: "contact-info",
+                  style: { display: "flex", flexDirection: "column", gap: "5px" }
+                }, [
+                  React.createElement("button", {
+                    key: "email-btn",
+                    onClick: () => handleEmail(selectedCard.email),
+                    style: {
+                      background: "none",
+                      border: "none",
+                      color: "white",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      padding: "2px 0",
+                      textDecoration: "underline"
+                    }
+                  }, selectedCard.email),
+                  
+                  selectedCard.phone && React.createElement("button", {
+                    key: "phone-btn",
+                    onClick: () => handlePhoneCall(selectedCard.phone),
+                    style: {
+                      background: "none",
+                      border: "none",
+                      color: "white",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      padding: "2px 0",
+                      textDecoration: "underline"
+                    }
+                  }, selectedCard.phone),
+                  
+                  React.createElement("button", {
+                    key: "address-btn",
+                    onClick: () => handleAddress(selectedCard.companyName),
+                    style: {
+                      background: "none",
+                      border: "none",
+                      color: "white",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      padding: "2px 0",
+                      textDecoration: "underline"
+                    }
+                  }, "📍 View on Maps")
+                ])
+              ])
+            ])
+          ])
+        ]);
+      }
+
+      return React.createElement("div", {
+        style: {
+          padding: "50px 20px 100px 20px",
+          minHeight: "100vh"
+        }
+      }, [
+        React.createElement("div", {
+          key: "search-section",
+          style: { marginBottom: "20px" }
+        }, [
+          React.createElement("input", {
+            key: "search-input",
+            type: "text",
+            placeholder: "Search contacts...",
+            value: searchQuery,
+            onChange: (e) => setSearchQuery(e.target.value),
+            style: {
+              width: "100%",
+              padding: "12px 16px",
+              borderRadius: "12px",
+              border: "none",
+              background: darkMode ? "rgba(55, 65, 81, 0.8)" : "rgba(243, 244, 246, 0.8)",
+              fontSize: "16px",
+              outline: "none"
+            }
+          })
+        ]),
+        
+        React.createElement("div", {
+          key: "contacts-stack",
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+          }
+        }, filteredContacts.map((contact, index) => 
+          React.createElement("div", {
+            key: contact.id,
+            onClick: () => setSelectedCard(contact),
+            style: {
+              background: `linear-gradient(135deg, ${contact.brandColors || '#6366f1, #9333ea'})`,
+              borderRadius: "15px",
+              padding: "20px",
+              color: "white",
+              cursor: "pointer",
+              transform: `translateY(${index * 2}px)`,
+              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+              transition: "transform 0.2s ease",
+              marginBottom: index === filteredContacts.length - 1 ? "0" : "-10px",
+              zIndex: filteredContacts.length - index
+            }
+          }, [
+            React.createElement("div", {
+              key: "contact-info",
+              style: { display: "flex", justifyContent: "space-between", alignItems: "center" }
+            }, [
+              React.createElement("div", { key: "contact-details" }, [
+                React.createElement("h3", {
+                  key: "name",
+                  style: { margin: "0 0 5px 0", fontSize: "18px", fontWeight: "600" }
+                }, contact.name),
+                React.createElement("p", {
+                  key: "title",
+                  style: { margin: "0 0 3px 0", fontSize: "14px", opacity: 0.9 }
+                }, contact.title),
+                React.createElement("p", {
+                  key: "company",
+                  style: { margin: "0", fontSize: "13px", opacity: 0.8 }
+                }, contact.companyName)
+              ]),
+              React.createElement("div", {
+                key: "chevron",
+                style: { fontSize: "18px", opacity: 0.7 }
+              }, "›")
+            ])
+          ])
+        ))
+      ]);
+    };
+
+    const renderSearchView = () => {
+      return React.createElement("div", {
+        style: { padding: "50px 20px 100px 20px" }
+      }, [
+        React.createElement("h2", { key: "title", style: { margin: "0 0 20px 0" } }, "Discover People"),
         React.createElement("input", {
           key: "search-input",
           type: "text",
@@ -406,228 +601,255 @@
           onChange: (e) => {
             setSearchQuery(e.target.value);
             searchPublicCards(e.target.value);
+          },
+          style: {
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: "12px",
+            border: "none",
+            background: darkMode ? "rgba(55, 65, 81, 0.8)" : "rgba(243, 244, 246, 0.8)",
+            fontSize: "16px",
+            outline: "none",
+            marginBottom: "20px"
           }
         }),
-        searchResults.length > 0 && React.createElement("div", { key: "results", style: { marginTop: "1rem" } }, [
-          React.createElement("h4", { key: "results-title" }, `Found ${searchResults.length} results:`),
-          searchResults.map(result => 
-            React.createElement("div", {
-              key: result.id,
-              className: "glass",
-              style: { 
-                margin: "1rem 0", 
-                padding: "1rem",
-                background: `linear-gradient(135deg, ${result.brandColors || '#6366f1, #9333ea'})`
+        searchResults.map(result => 
+          React.createElement("div", {
+            key: result.id,
+            style: {
+              background: darkMode ? "rgba(55, 65, 81, 0.5)" : "rgba(255, 255, 255, 0.8)",
+              borderRadius: "15px",
+              padding: "15px",
+              marginBottom: "10px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }
+          }, [
+            React.createElement("div", { key: "info" }, [
+              React.createElement("h4", {
+                key: "name",
+                style: { margin: "0 0 5px 0" }
+              }, result.name),
+              React.createElement("p", {
+                key: "title",
+                style: { margin: "0 0 3px 0", fontSize: "14px", opacity: 0.7 }
+              }, result.title),
+              React.createElement("p", {
+                key: "company",
+                style: { margin: "0", fontSize: "13px", opacity: 0.6 }
+              }, result.companyName)
+            ]),
+            React.createElement("button", {
+              key: "connect-btn",
+              onClick: () => sendConnectionRequest(result.id),
+              style: {
+                background: "#007AFF",
+                color: "white",
+                border: "none",
+                borderRadius: "20px",
+                padding: "8px 16px",
+                cursor: "pointer",
+                fontSize: "14px"
               }
-            }, [
-              React.createElement("div", {
-                key: "result-header",
-                style: { display: "flex", justifyContent: "space-between", alignItems: "center" }
-              }, [
-                React.createElement("div", { key: "info" }, [
-                  React.createElement("h4", { key: "name", style: { color: "white", margin: "0 0 0.5rem 0" } }, result.name),
-                  React.createElement("p", { key: "title", style: { color: "white", margin: "0 0 0.25rem 0" } }, result.title),
-                  React.createElement("p", { key: "company", style: { color: "white", margin: "0", fontSize: "0.9rem" } }, result.companyName)
-                ]),
-                React.createElement("button", {
-                  key: "connect-btn",
-                  onClick: () => sendConnectionRequest(result.id),
-                  style: {
-                    background: "rgba(255,255,255,0.2)",
-                    color: "white",
-                    border: "1px solid rgba(255,255,255,0.3)",
-                    borderRadius: "0.5rem",
-                    padding: "0.5rem 1rem",
-                    cursor: "pointer",
-                    fontSize: "0.9rem"
-                  }
-                }, "🤝 Connect")
-              ])
-            ])
-          )
-        ])
+            }, "Connect")
+          ])
+        )
       ]);
     };
 
-    const renderConnections = () => {
+    const renderRequestsView = () => {
       const currentUser = employees[0];
       if (!currentUser) return React.createElement("p", {}, "Please create a profile first.");
 
-      const userConnections = connections.filter(conn => 
-        conn.employeeId1 === currentUser.id || conn.employeeId2 === currentUser.id
-      ).map(conn => {
-        const connectedEmployeeId = conn.employeeId1 === currentUser.id ? conn.employeeId2 : conn.employeeId1;
-        return employees.find(emp => emp.id === connectedEmployeeId);
-      }).filter(Boolean);
+      const incomingRequests = connectionRequests.filter(req => req.toEmployeeId === currentUser.id);
 
-      return React.createElement("div", {}, [
-        React.createElement("h3", { key: "title" }, `My Connections (${userConnections.length})`),
-        userConnections.length === 0
-          ? React.createElement("p", { key: "no-connections" }, "No connections yet. Search for people to connect with!")
-          : userConnections.map(connection => 
+      return React.createElement("div", {
+        style: { padding: "50px 20px 100px 20px" }
+      }, [
+        React.createElement("h2", { key: "title", style: { margin: "0 0 20px 0" } }, "Connection Requests"),
+        incomingRequests.length === 0
+          ? React.createElement("p", { key: "no-requests" }, "No pending requests.")
+          : incomingRequests.map(request => 
               React.createElement("div", {
-                key: connection.id,
-                className: "glass",
-                style: { margin: "1rem 0", padding: "1rem" }
+                key: request.id,
+                style: {
+                  background: darkMode ? "rgba(55, 65, 81, 0.5)" : "rgba(255, 255, 255, 0.8)",
+                  borderRadius: "15px",
+                  padding: "15px",
+                  marginBottom: "10px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }
               }, [
-                React.createElement("h4", { key: "name", style: { margin: "0 0 0.5rem 0" } }, connection.name),
-                React.createElement("p", { key: "title", style: { margin: "0 0 0.25rem 0" } }, connection.title),
-                React.createElement("p", { key: "company", style: { margin: "0 0 0.5rem 0", color: darkMode ? "#d1d5db" : "#6b7280" } }, connection.companyName),
-                React.createElement("p", { key: "email", style: { margin: "0", fontSize: "0.9rem" } }, connection.email)
+                React.createElement("div", { key: "request-info" }, [
+                  React.createElement("h4", {
+                    key: "name",
+                    style: { margin: "0 0 5px 0" }
+                  }, request.fromName),
+                  React.createElement("p", {
+                    key: "company",
+                    style: { margin: "0", fontSize: "14px", opacity: 0.7 }
+                  }, request.fromCompany)
+                ]),
+                React.createElement("div", {
+                  key: "actions",
+                  style: { display: "flex", gap: "10px" }
+                }, [
+                  React.createElement("button", {
+                    key: "accept",
+                    onClick: () => acceptConnectionRequest(request.id),
+                    style: {
+                      background: "#34D399",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "20px",
+                      padding: "8px 16px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }
+                  }, "Accept"),
+                  React.createElement("button", {
+                    key: "decline",
+                    onClick: () => rejectConnectionRequest(request.id),
+                    style: {
+                      background: "#F87171",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "20px",
+                      padding: "8px 16px",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }
+                  }, "Decline")
+                ])
               ])
             )
       ]);
     };
 
-    const renderRequests = () => {
-      const currentUser = employees[0];
-      if (!currentUser) return React.createElement("p", {}, "Please create a profile first.");
+    const renderBottomNavigation = () => {
+      if (currentRole !== "employee") return null;
 
-      const incomingRequests = connectionRequests.filter(req => req.toEmployeeId === currentUser.id);
-      const outgoingRequests = connectionRequests.filter(req => req.fromEmployeeId === currentUser.id);
+      const tabs = [
+        { id: "wallet", label: "Wallet", icon: "👥" },
+        { id: "search", label: "Discover", icon: "🔍" },
+        { id: "requests", label: "Requests", icon: "📩" }
+      ];
 
-      return React.createElement("div", {}, [
-        React.createElement("h3", { key: "incoming-title" }, `Incoming Requests (${incomingRequests.length})`),
-        incomingRequests.length === 0
-          ? React.createElement("p", { key: "no-incoming" }, "No incoming connection requests.")
-          : incomingRequests.map(request => 
-              React.createElement("div", {
-                key: request.id,
-                className: "glass",
-                style: { margin: "1rem 0", padding: "1rem" }
-              }, [
-                React.createElement("div", {
-                  key: "request-content",
-                  style: { display: "flex", justifyContent: "space-between", alignItems: "center" }
-                }, [
-                  React.createElement("div", { key: "request-info" }, [
-                    React.createElement("h4", { key: "name", style: { margin: "0 0 0.25rem 0" } }, request.fromName),
-                    React.createElement("p", { key: "company", style: { margin: "0", color: darkMode ? "#d1d5db" : "#6b7280" } }, request.fromCompany)
-                  ]),
-                  React.createElement("div", { key: "request-actions", style: { display: "flex", gap: "0.5rem" } }, [
-                    React.createElement("button", {
-                      key: "accept-btn",
-                      onClick: () => acceptConnectionRequest(request.id),
-                      style: {
-                        background: "#10b981",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        padding: "0.5rem 1rem",
-                        cursor: "pointer"
-                      }
-                    }, "✅ Accept"),
-                    React.createElement("button", {
-                      key: "reject-btn",
-                      onClick: () => rejectConnectionRequest(request.id),
-                      style: {
-                        background: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0.25rem",
-                        padding: "0.5rem 1rem",
-                        cursor: "pointer"
-                      }
-                    }, "❌ Decline")
-                  ])
-                ])
-              ])
-            ),
-        
-        React.createElement("h3", { key: "outgoing-title", style: { marginTop: "2rem" } }, `Sent Requests (${outgoingRequests.length})`),
-        outgoingRequests.length === 0
-          ? React.createElement("p", { key: "no-outgoing" }, "No outgoing connection requests.")
-          : outgoingRequests.map(request => {
-              const targetEmployee = employees.find(emp => emp.id === request.toEmployeeId);
-              return React.createElement("div", {
-                key: request.id,
-                className: "glass",
-                style: { margin: "1rem 0", padding: "1rem" }
-              }, [
-                React.createElement("div", {
-                  key: "sent-info",
-                  style: { display: "flex", justifyContent: "space-between", alignItems: "center" }
-                }, [
-                  React.createElement("div", { key: "target-info" }, [
-                    React.createElement("h4", { key: "name", style: { margin: "0 0 0.25rem 0" } }, targetEmployee?.name || "Unknown"),
-                    React.createElement("p", { key: "company", style: { margin: "0", color: darkMode ? "#d1d5db" : "#6b7280" } }, targetEmployee?.companyName || "Unknown Company")
-                  ]),
-                  React.createElement("span", {
-                    key: "status",
-                    style: {
-                      background: "#fbbf24",
-                      color: "white",
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.25rem",
-                      fontSize: "0.8rem"
-                    }
-                  }, "⏳ Pending")
-                ])
-              ]);
-            })
-      ]);
-    };
-
-    const renderReceiveCard = () => {
-      return React.createElement("div", {}, [
-        React.createElement("h3", { key: "title" }, "Receive Someone's Card"),
-        React.createElement("p", { key: "description", style: { color: darkMode ? "#d1d5db" : "#6b7280", marginBottom: "1rem" } }, "Enter a share code to view someone's business card:"),
-        React.createElement("input", {
-          key: "share-input",
-          type: "text",
-          placeholder: "Enter share code (e.g., ABC123XY)",
-          value: shareCode,
-          onChange: (e) => setShareCode(e.target.value.toUpperCase()),
-          style: { textTransform: "uppercase" }
-        }),
+      return React.createElement("div", {
+        style: {
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: darkMode ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)",
+          backdropFilter: "blur(20px)",
+          padding: "10px 0 30px 0",
+          borderTop: `1px solid ${darkMode ? "rgba(55, 65, 81, 0.3)" : "rgba(229, 231, 235, 0.8)"}`,
+          display: "flex",
+          justifyContent: "space-around",
+          zIndex: 100
+        }
+      }, tabs.map(tab =>
         React.createElement("button", {
-          key: "lookup-btn",
-          className: "gradient-btn",
-          onClick: handleShareCodeLookup,
-          disabled: !shareCode.trim()
-        }, "View Card"),
-        
-        viewedCard && React.createElement("div", {
-          key: "viewed-card",
-          className: "glass",
-          style: { 
-            margin: "2rem 0 0 0", 
-            padding: "1.5rem",
-            background: `linear-gradient(135deg, ${viewedCard.brandColors || '#6366f1, #9333ea'})`
+          key: tab.id,
+          onClick: () => setActiveTab(tab.id),
+          style: {
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px",
+            color: activeTab === tab.id ? "#007AFF" : (darkMode ? "#9CA3AF" : "#6B7280"),
+            fontSize: "24px"
           }
         }, [
-          React.createElement("h4", { key: "viewed-title", style: { color: "white", margin: "0 0 1rem 0" } }, "📇 Received Business Card"),
-          React.createElement("h3", { key: "viewed-name", style: { color: "white", margin: "0 0 0.5rem 0" } }, viewedCard.name),
-          React.createElement("p", { key: "viewed-jobtitle", style: { color: "white", margin: "0 0 0.5rem 0" } }, viewedCard.title),
-          React.createElement("p", { key: "viewed-company", style: { color: "white", margin: "0 0 0.5rem 0" } }, viewedCard.companyName),
-          React.createElement("p", { key: "viewed-email", style: { color: "white", margin: "0 0 0.5rem 0" } }, viewedCard.email),
-          viewedCard.phone && React.createElement("p", { key: "viewed-phone", style: { color: "white", margin: "0" } }, viewedCard.phone),
-          React.createElement("button", {
-            key: "close-btn",
-            onClick: () => setViewedCard(null),
-            style: { 
-              marginTop: "1rem", 
-              background: "rgba(255,255,255,0.2)", 
-              color: "white", 
-              border: "1px solid rgba(255,255,255,0.3)",
-              borderRadius: "0.5rem",
-              padding: "0.5rem 1rem",
-              cursor: "pointer"
-            }
-          }, "Close")
+          React.createElement("span", { key: "icon" }, tab.icon),
+          React.createElement("span", {
+            key: "label",
+            style: { fontSize: "12px", fontWeight: "500" }
+          }, tab.label)
         ])
-      ]);
+      ));
     };
 
     const renderEmployeeView = () => {
-      return React.createElement("div", { className: "glass", style: { maxWidth: "800px", width: "100%" } }, [
-        React.createElement("h2", { key: "title" }, "👤 Employee Portal"),
-        renderTabNavigation(),
-        activeTab === "my-cards" && renderMyCards(),
-        activeTab === "search" && renderSearch(),
-        activeTab === "connections" && renderConnections(),
-        activeTab === "requests" && renderRequests(),
-        activeTab === "receive" && renderReceiveCard()
+      return React.createElement("div", {
+        style: {
+          minHeight: "100vh",
+          background: darkMode ? "#111827" : "#f9fafb"
+        }
+      }, [
+        // Header with hamburger menu
+        React.createElement("div", {
+          key: "header",
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            background: darkMode ? "rgba(17, 24, 39, 0.95)" : "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(20px)",
+            padding: "10px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            zIndex: 200,
+            borderBottom: `1px solid ${darkMode ? "rgba(55, 65, 81, 0.3)" : "rgba(229, 231, 235, 0.8)"}`
+          }
+        }, [
+          React.createElement("button", {
+            key: "menu-btn",
+            onClick: () => setShowMenu(!showMenu),
+            style: {
+              background: "none",
+              border: "none",
+              fontSize: "20px",
+              cursor: "pointer",
+              color: darkMode ? "#f3f4f6" : "#374151"
+            }
+          }, "☰"),
+          React.createElement("h1", {
+            key: "title",
+            style: {
+              margin: 0,
+              fontSize: "18px",
+              fontWeight: "600",
+              color: darkMode ? "#f3f4f6" : "#374151"
+            }
+          }, activeTab === "wallet" ? "Contacts" : activeTab === "search" ? "Discover" : "Requests"),
+          React.createElement("div", { key: "spacer", style: { width: "20px" } })
+        ]),
+
+        // Overlay for menu
+        showMenu && React.createElement("div", {
+          key: "overlay",
+          onClick: () => setShowMenu(false),
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.3)",
+            zIndex: 999
+          }
+        }),
+
+        // Hamburger menu
+        renderHamburgerMenu(),
+
+        // Main content based on active tab
+        activeTab === "wallet" && renderWalletView(),
+        activeTab === "search" && renderSearchView(),
+        activeTab === "requests" && renderRequestsView(),
+
+        // Bottom navigation
+        renderBottomNavigation()
       ]);
     };
 
@@ -663,7 +885,6 @@
           disabled: !companyName || !brandColors
         }, "Place Order"),
         
-        // Orders List
         React.createElement("div", { key: "orders-list", style: { marginTop: "2rem" } }, [
           React.createElement("h3", { key: "orders-title" }, "My Orders"),
           orders.length === 0 
@@ -812,6 +1033,10 @@
       ]);
     };
 
+    if (currentRole === "employee") {
+      return renderEmployeeView();
+    }
+
     return React.createElement("div", { className: "container" }, [
       React.createElement("button", {
         key: "theme-toggle",
@@ -842,14 +1067,12 @@
       
       currentRole === "company" && renderCompanyView(),
       currentRole === "designer" && renderDesignerView(),
-      currentRole === "hr" && renderHRView(),
-      currentRole === "employee" && renderEmployeeView()
+      currentRole === "hr" && renderHRView()
     ]);
   }
 
   ReactDOM.render(React.createElement(App), document.getElementById("root"));
 
-  // Register service worker
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js");
   }

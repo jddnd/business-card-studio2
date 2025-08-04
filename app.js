@@ -804,17 +804,12 @@
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "4px",
+            justifyContent: "center",
             color: activeTab === tab.id ? "#007AFF" : (darkMode ? "#9CA3AF" : "#6B7280"),
-            fontSize: "24px"
+            fontSize: "28px",
+            padding: "10px"
           }
-        }, [
-          React.createElement("span", { key: "icon" }, tab.icon),
-          React.createElement("span", {
-            key: "label",
-            style: { fontSize: "12px", fontWeight: "500" }
-          }, tab.label)
-        ])
+        }, React.createElement("span", { key: "icon" }, tab.icon))
       ));
     };
 
